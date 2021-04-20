@@ -3,7 +3,8 @@ package observer.v5_D
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
-import org.junit.Test
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
 
 class Test {
 
@@ -34,75 +35,61 @@ class Test {
         }
     }
 
+    private val channel = ErrorSubject(eventErrorFactory)
+    private val client = Consumer(channel)
+    private val producer = Producer(channel)
+
+    private val serverException = ServerException(404, "not found")
+    private val userException = UserException("missing id")
+    private val unknownException = Exception("unknown")
+
+    @BeforeEach
+    fun setup() {
+        every { operationA(any()) } returns Unit
+    }
+
     @Test
     fun `given producer produces values, client should be notified only when subscribed`() {
-        val channel = Subject(eventErrorFactory)
-        val client = Consumer(channel)
-        val producer = Producer(channel)
-
-        val exception = ServerException(404, "not found")
-        val serverError = EventError.ServerError("not found", 404)
-
-        every { operationA(serverError) } returns Unit
-
         client.startObserving()
-        producer.produce(exception)
+        producer.produce(serverException)
         client.stopObserving()
-        producer.produce(exception)
+        producer.produce(serverException)
 
-        verify(exactly = 1) { operationA(serverError) }
+        verify(exactly = 1) { operationA(
+            EventError.ServerError("not found", 404)
+        ) }
     }
 
     @Test
     fun `given producer produces a server error event, client should be notified`() {
-        val channel = Subject(eventErrorFactory)
-        val client = Consumer(channel)
-        val producer = Producer(channel)
-
-        val exception = ServerException(404, "not found")
-        val serverError = EventError.ServerError("not found", 404)
-
-        every { operationA(serverError) } returns Unit
-
         client.startObserving()
-        producer.produce(exception)
-        producer.produce(exception)
+        producer.produce(serverException)
+        producer.produce(serverException)
 
-        verify(exactly = 2) { operationA(serverError) }
+        verify(exactly = 2) { operationA(
+            EventError.ServerError("not found", 404)
+        ) }
     }
 
     @Test
     fun `given producer produces a user error event, client should be notified`() {
-        val channel = Subject(eventErrorFactory)
-        val client = Consumer(channel)
-        val producer = Producer(channel)
-
-        val exception = UserException("missing id")
-        val userError = EventError.UserError("missing id")
-
-        every { operationA(userError) } returns Unit
-
         client.startObserving()
-        producer.produce(exception)
+        producer.produce(userException)
 
-        verify { operationA(userError) }
+        verify { operationA(
+            EventError.UserError("missing id")
+        ) }
     }
 
     @Test
     fun `given producer produces an unknown error event, client should be notified`() {
-        val channel = Subject(eventErrorFactory)
-        val client = Consumer(channel)
-        val producer = Producer(channel)
-
-        val exception = Exception("unknown")
-        val unknownError = EventError.UnknownError("unknown", 1000)
-
-        every { operationA(unknownError) } returns Unit
         every { currentTimeWrapper.getCurrentTimeMillis() } returns 1000
 
         client.startObserving()
-        producer.produce(exception)
+        producer.produce(unknownException)
 
-        verify { operationA(unknownError) }
+        verify { operationA(
+            EventError.UnknownError("unknown", 1000)
+        ) }
     }
 }

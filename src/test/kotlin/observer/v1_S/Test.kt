@@ -3,14 +3,15 @@ package observer.v1_S
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
-import org.junit.Ignore
-import org.junit.Test
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
+
 
 class Test {
 
     val operationA: (eventError: EventError) -> Unit = mockk()
 
-    inner class Consumer(private val channel: Subject) {
+    inner class Consumer(private val channel: ErrorSubject) {
         private val observer = object : Observer<EventError> {
             override fun update(value: EventError) {
                 operationA(value)
@@ -26,81 +27,65 @@ class Test {
         }
     }
 
-    inner class Producer(private val channel: Subject) {
+    inner class Producer(private val channel: ErrorSubject) {
         fun produce(value: Exception) {
             channel.notify(value)
         }
     }
 
+    @BeforeEach
+    fun setup() {
+        every { operationA(any()) } returns Unit
+    }
+
+    private val channel = ErrorSubject()
+    private val client = Consumer(channel)
+    private val producer = Producer(channel)
+
+    private val serverException = ServerException(404, "not found")
+    private val userException = UserException("missing id")
+    private val unknownException = Exception("unknown")
+
     @Test
     fun `given producer produces values, client should be notified only when subscribed`() {
-        val channel = Subject()
-        val client = Consumer(channel)
-        val producer = Producer(channel)
-
-        val exception = ServerException(404, "not found")
-        val serverError = EventError.ServerError("not found", 404)
-
-        every { operationA(serverError) } returns Unit
-
         client.startObserving()
-        producer.produce(exception)
+        producer.produce(serverException)
         client.stopObserving()
-        producer.produce(exception)
+        producer.produce(serverException)
 
-        verify(exactly = 1) { operationA(serverError) }
+        verify(exactly = 1) { operationA(
+            EventError.ServerError("not found", 404)
+        ) }
     }
 
     @Test
     fun `given producer produces a server error event, client should be notified`() {
-        val channel = Subject()
-        val client = Consumer(channel)
-        val producer = Producer(channel)
-
-        val exception = ServerException(404, "not found")
-        val serverError = EventError.ServerError("not found", 404)
-
-        every { operationA(serverError) } returns Unit
-
         client.startObserving()
-        producer.produce(exception)
-        producer.produce(exception)
+        producer.produce(serverException)
+        producer.produce(serverException)
 
-        verify(exactly = 2) { operationA(serverError) }
+        verify(exactly = 2) { operationA(
+            EventError.ServerError("not found", 404)
+        ) }
     }
 
     @Test
     fun `given producer produces a user error event, client should be notified`() {
-        val channel = Subject()
-        val client = Consumer(channel)
-        val producer = Producer(channel)
-
-        val exception = UserException("missing id")
-        val userError = EventError.UserError("missing id")
-
-        every { operationA(userError) } returns Unit
-
         client.startObserving()
-        producer.produce(exception)
+        producer.produce(userException)
 
-        verify { operationA(userError) }
+        verify { operationA(
+            EventError.UserError("missing id")
+        ) }
     }
 
     @Test
-    @Ignore
     fun `given producer produces an unknown error event, client should be notified`() {
-        val channel = Subject()
-        val client = Consumer(channel)
-        val producer = Producer(channel)
-
-        val exception = Exception("unknown")
-        val unknownError = EventError.UnknownError("unknown", System.currentTimeMillis())
-
-        every { operationA(unknownError) } returns Unit
-
         client.startObserving()
-        producer.produce(exception)
+        producer.produce(unknownException)
 
-        verify { operationA(unknownError) }
+        verify { operationA(
+            EventError.UnknownError("unknown", System.currentTimeMillis())
+        ) }
     }
 }
