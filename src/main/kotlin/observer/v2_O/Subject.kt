@@ -15,7 +15,8 @@ class Subject {
     }
 
     fun notify(exception: Exception) {
-        notifyAll(EventErrorFactory.get(exception))
+        val eventValue: EventError = EventErrorFactory.get(exception)
+        notifyAll(eventValue)
     }
 
     private fun notifyAll(eventValue: EventError) {

@@ -15,7 +15,8 @@ class Subject : Observable<EventError>, Publisher<Exception> {
     }
 
     override fun notify(value: Exception) {
-        notifyAll(EventErrorFactory.get(value))
+        val eventValue:EventError = EventErrorFactory.get(value)
+        notifyAll(eventValue)
     }
 
     private fun notifyAll(eventValue: EventError) {
