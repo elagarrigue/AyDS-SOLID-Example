@@ -15,6 +15,7 @@ class ErrorSubject {
     }
 
     fun notify(exception: Exception) {
+        // map exception to event
         val eventValue: EventError =
             when (exception) {
                 is ServerException ->
@@ -28,11 +29,9 @@ class ErrorSubject {
                     )
             }
 
-        notifyAll(eventValue)
-    }
-    private fun notifyAll(event: EventError) {
+        // notify all
         observers.forEach {
-            it.update(event)
+            it.update(eventValue)
         }
     }
 }
